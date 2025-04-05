@@ -1,0 +1,190 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Estructura del jugador
+typedef struct Jugador {
+    int id;
+    char nombre[30];
+    int edad;
+    char genero;
+    char deporte[50];
+    struct Jugador* siguiente;
+} Jugador;
+
+// Estructuras para la cola y la pila
+typedef struct {
+    Jugador* frente;
+    Jugador* final;
+    int hombres;
+    int mujeres;
+    int total;
+} Cola;
+
+typedef struct {
+    Jugador* tope;
+} Pila;
+
+// Función para crear un jugador
+Jugador* crearJugador(int id, char nombre[], int edad, char genero, char deporte[]) {
+    Jugador* nuevo = (Jugador*)malloc(sizeof(Jugador));
+    nuevo->id = id;
+    strcpy(nuevo->nombre, nombre);
+    nuevo->edad = edad;
+    nuevo->genero = genero;
+    strcpy(nuevo->deporte, deporte);
+    nuevo->siguiente = NULL;
+    return nuevo;
+}
+
+// Agregar jugador a la cola (FIFO)
+void agregarJugador(Cola* cola, int id, char nombre[], int edad, char genero, char deporte[]) {
+    if (edad < 15) {
+        printf("No se permite participar a jugadores menores de 15 años.\n");
+        return;
+    }
+    if ((genero == 'M' && cola->hombres - cola->mujeres >= 4) || (genero == 'F' && cola->mujeres - cola->hombres >= 4)) {
+        printf("No se puede agregar más jugadores hasta equilibrar la diferencia de género.\n");
+        return;
+    }
+
+    Jugador* nuevo = crearJugador(id, nombre, edad, genero, deporte);
+    if (cola->final == NULL) {
+        cola->frente = cola->final = nuevo;
+    } else {
+        cola->final->siguiente = nuevo;
+        cola->final = nuevo;
+    }
+
+    cola->total++;
+    if (genero == 'M') cola->hombres++;
+    else cola->mujeres++;
+    printf("Jugador agregado a la cola con éxito.\n");
+}
+
+// Mostrar jugadores en la cola
+void mostrarCola(Cola* cola) {
+    Jugador* actual = cola->frente;
+    if (!actual) {
+        printf("No hay jugadores en espera.\n");
+        return;
+    }
+    printf("Jugadores en espera:\n");
+    while (actual) {
+        printf("ID: %d, Nombre: %s, Edad: %d, Género: %c, Deporte: %s\n",
+               actual->id, actual->nombre, actual->edad, actual->genero, actual->deporte);
+        actual = actual->siguiente;
+    }
+}
+
+// Contar jugadores en espera
+int contarCola(Cola* cola) {
+    return cola->total;
+}
+
+// Permitir participación del siguiente jugador
+void permitirParticipacion(Cola* cola, Pila* pila) {
+    if (!cola->frente) {
+        printf("No hay jugadores en espera.\n");
+        return;
+    }
+
+    Jugador* participante = cola->frente;
+    cola->frente = participante->siguiente;
+    if (!cola->frente) cola->final = NULL;
+
+    // Actualizar contadores de género
+    if (participante->genero == 'M') cola->hombres--;
+    else cola->mujeres--;
+    cola->total--;
+
+    // Agregar a la pila (historial de participación)
+    participante->siguiente = pila->tope;
+    pila->tope = participante;
+    printf("Jugador %s ha participado y ha sido añadido al historial.\n", participante->nombre);
+}
+
+// Mostrar historial de participación
+void mostrarHistorial(Pila* pila) {
+    Jugador* actual = pila->tope;
+    if (!actual) {
+        printf("No hay jugadores en el historial.\n");
+        return;
+    }
+    printf("Historial de participación:\n");
+    while (actual) {
+        printf("ID: %d, Nombre: %s, Edad: %d, Género: %c, Deporte: %s\n",
+               actual->id, actual->nombre, actual->edad, actual->genero, actual->deporte);
+        actual = actual->siguiente;
+    }
+}
+
+// Deshacer última participación
+void deshacerParticipacion(Cola* cola, Pila* pila) {
+    if (!pila->tope) {
+        printf("No hay participación para deshacer.\n");
+        return;
+    }
+
+    Jugador* deshacer = pila->tope;
+    pila->tope = deshacer->siguiente;
+
+    // Volver a agregarlo al final de la cola
+    deshacer->siguiente = NULL;
+    if (cola->final) cola->final->siguiente = deshacer;
+    else cola->frente = deshacer;
+    cola->final = deshacer;
+    cola->total++;
+    if (deshacer->genero == 'M') cola->hombres++;
+    else cola->mujeres++;
+    printf("Se ha deshecho la última participación y el jugador %s ha vuelto a la cola.\n", deshacer->nombre);
+}
+
+int main() {
+    Cola cola = {NULL, NULL, 0, 0, 0};
+    Pila pila = {NULL};
+    int opcion, id, edad;
+    char nombre[30], genero, deporte[50];
+
+    do {
+        printf("\nMenú:\n");
+        printf("1. Agregar jugador a la cola\n");
+        printf("2. Mostrar jugadores en espera\n");
+        printf("3. Contar jugadores en espera\n");
+        printf("4. Permitir participación del siguiente jugador\n");
+        printf("5. Mostrar historial de participación\n");
+        printf("6. Deshacer última participación\n");
+        printf("7. Salir\n");
+        printf("Seleccione una opción: ");
+        scanf("%d", &opcion);
+
+        switch (opcion) {
+            case 1:
+                printf("Ingrese ID, Nombre, Edad, Género (M/F), Deporte: ");
+                scanf("%d %s %d %c %s", &id, nombre, &edad, &genero, deporte);
+                agregarJugador(&cola, id, nombre, edad, genero, deporte);
+                break;
+            case 2:
+                mostrarCola(&cola);
+                break;
+            case 3:
+                printf("Total de jugadores en espera: %d\n", contarCola(&cola));
+                break;
+            case 4:
+                permitirParticipacion(&cola, &pila);
+                break;
+            case 5:
+                mostrarHistorial(&pila);
+                break;
+            case 6:
+                deshacerParticipacion(&cola, &pila);
+                break;
+            case 7:
+                printf("Saliendo...\n");
+                break;
+            default:
+                printf("Opción inválida.\n");
+        }
+    } while (opcion != 7);
+    return 0;
+}
